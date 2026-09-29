@@ -1,0 +1,32 @@
+{
+  "name": "time-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local desktop app that turns your weekly hours into a PDF invoice and a weekly timesheet",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "app": "vite build && electron .",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron . --dev\""
+  },
+  "dependencies": {
+    "pdfkit": "^0.15.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.4.11",
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.3"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true,
+    "esbuild@0.25.12": true
+  }
+}

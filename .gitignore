@@ -1,0 +1,17 @@
+node_modules/
+dist/
+out/
+release/
+
+# local data / generated documents never belong in the repo
+*.db
+*.sqlite
+*.pdf
+
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
