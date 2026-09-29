@@ -10,7 +10,7 @@
     "build": "vite build",
     "start": "electron .",
     "app": "vite build && electron .",
-    "test": "node src/periods.test.mjs",
+    "test": "node src/periods.test.mjs && node electron/styles.test.js",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron . --dev\""
   },
   "dependencies": {

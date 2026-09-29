@@ -45,6 +45,18 @@ The app starts empty.
 
 If you change a client's cycle, and some days in the new period are already on an earlier invoice, the app warns you so you don't bill them twice.
 
+## Output style
+
+**Output style** controls how both PDFs look, with a live preview beside the settings:
+
+- **Presets**: Classic (the original orange/peach look), Slate, Minimal and Forest. A preset sets fonts and colours only.
+- **Colours**: every colour on both documents, with a colour picker or a hex code.
+- **Fonts**: separate choices for the invoice, the footer notes and the timesheet. Only fonts installed on the computer are listed, and the PDF built-ins (Helvetica, Times, Courier) always work. Characters a font can't draw, such as ₱ in Roboto, are filled in from a system font.
+- **Branding**: a logo (PNG or JPEG) at the top right of the invoice, the invoice title, and the closing line.
+- **Format**: page size (Tabloid, Letter or A4), date format, currency symbol, and a file-name template using `{name}`, `{type}`, `{range}`, `{number}`, `{client}`, `{start}` and `{end}`.
+
+Changes apply to PDFs you create after saving. The logo is copied into the app's data folder, so moving the original file doesn't break it.
+
 ## Where your data lives
 
 | | Location |
@@ -60,13 +72,14 @@ To start over, delete `timetracker.db`. To keep data in a different folder, for 
 npm run electron:dev   # Vite dev server + Electron with DevTools
 npm run build          # build the UI into dist/
 npm start              # run Electron against dist/
-npm test               # billing-period date math
+npm test               # billing-period math + output-style validation
 ```
 
 | Path | What it does |
 |---|---|
 | `electron/main.js` | Window, SQLite database (sql.js / WASM, no native build), IPC |
-| `electron/pdf.js` | Invoice and timesheet layouts (PDFKit) |
+| `electron/pdf.js` | Invoice and timesheet layouts (PDFKit), drawn in a 792-pt design space and scaled to the page size |
+| `electron/styles.js` | Output-style presets, fonts, page sizes and input validation |
 | `electron/fonts/` | Bundled Roboto for the invoice. The timesheet uses Arial and falls back to Helvetica when Arial isn't installed |
 | `src/periods.js` | Billing-period math (weekly, bi-weekly, semi-monthly, monthly) |
 | `src/` | React UI |

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import PeriodPage from './components/PeriodPage';
 import ClientsPage from './components/ClientsPage';
 import SettingsPage from './components/SettingsPage';
+import StylesPage from './components/StylesPage';
 
 export default function App() {
   const [page, setPage] = useState('period');
@@ -18,6 +19,7 @@ export default function App() {
   const pages = [
     { id: 'period', label: 'Invoice' },
     { id: 'clients', label: 'Clients' },
+    { id: 'styles', label: 'Output style' },
     { id: 'settings', label: 'Settings' },
   ];
 
@@ -35,6 +37,7 @@ export default function App() {
       <main className="main-content">
         {page === 'period' && <PeriodPage showToast={showToast} settings={settings} goSettings={() => setPage('settings')} />}
         {page === 'clients' && <ClientsPage showToast={showToast} />}
+        {page === 'styles' && <StylesPage showToast={showToast} />}
         {page === 'settings' && <SettingsPage showToast={showToast} />}
       </main>
       {toast && <div className={`toast ${toast.kind}`}>{toast.msg}</div>}

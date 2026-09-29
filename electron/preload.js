@@ -20,4 +20,10 @@ contextBridge.exposeInMainWorld('api', {
 
   openPath: call('shell:open'),
   reveal: call('shell:reveal'),
+
+  getStyle: call('style:get'),
+  saveStyle: call('style:save'),
+  pickLogo: call('style:pickLogo'),
+  previewStyle: call('style:preview'),
+  fileExample: call('style:fileExample'),
 });

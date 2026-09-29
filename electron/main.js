@@ -2,7 +2,8 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const initSqlJs = require('sql.js');
-const { generatePeriod } = require('./pdf');
+const { generatePeriod, fileNames } = require('./pdf');
+const S = require('./styles');
 
 let db;
 let dbPath;
@@ -118,10 +119,17 @@ async function initDatabase() {
 function getSettings() {
   const out = {};
   for (const r of queryAll('SELECT key, value FROM settings')) out[r.key] = r.value;
+  delete out.output_style; // handled by getStyle()
   return out;
 }
 function setSetting(k, v) {
   db.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [k, v ?? '']);
+}
+function getStyle() {
+  const row = queryOne("SELECT value FROM settings WHERE key = 'output_style'");
+  let raw = null;
+  try { raw = row ? JSON.parse(row.value) : null; } catch { raw = null; }
+  return S.normalizeStyle(raw || {});
 }
 
 // Invoices whose date range overlaps [start, end] for this client
@@ -133,7 +141,7 @@ const overlapping = (clientId, start, end, exceptStart) =>
 
 ipcMain.handle('settings:get', () => getSettings());
 ipcMain.handle('settings:save', (_e, s) => {
-  for (const [k, v] of Object.entries(s)) setSetting(k, String(v ?? ''));
+  for (const [k, v] of Object.entries(s)) if (k !== 'output_style') setSetting(k, String(v ?? ''));
   saveDb();
   return getSettings();
 });
@@ -210,7 +218,7 @@ ipcMain.handle('invoice:generate', async (_e, { clientId, start, end, number, su
   const outDir = settings.output_dir || path.join(app.getPath('documents'), 'Invoices');
   let result;
   try {
-    result = await generatePeriod({ settings, client, entries, periodStart: start, periodEnd: end, cycle, invoiceNumber: number, submittedOn, comments, outDir });
+    result = await generatePeriod({ settings, client, entries, periodStart: start, periodEnd: end, cycle, invoiceNumber: number, submittedOn, comments, outDir, style: getStyle() });
   } catch (err) {
     if (err.code === 'EBUSY' || err.code === 'EPERM') return { error: 'A PDF with this name is open in another program. Close it and try again.' };
     throw err;
@@ -227,6 +235,82 @@ ipcMain.handle('invoice:generate', async (_e, { clientId, start, end, number, su
 
 ipcMain.handle('shell:open', (_e, p) => shell.openPath(p));
 ipcMain.handle('shell:reveal', (_e, p) => shell.showItemInFolder(p));
+
+// ── IPC: output style ──
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const previewDir = () => path.join(app.getPath('temp'), 'timetracker-preview');
+
+ipcMain.handle('style:get', () => ({
+  style: getStyle(),
+  defaults: S.DEFAULT_STYLE,
+  presets: S.publicPresets(),
+  fonts: S.availableFonts(),
+  pageSizes: Object.entries(S.PAGE_SIZES).map(([id, p]) => ({ id, label: p.label })),
+  dateFormats: S.DATE_FORMATS,
+}));
+
+ipcMain.handle('style:save', (_e, style) => {
+  const clean = S.normalizeStyle(style);
+  setSetting('output_style', JSON.stringify(clean));
+  saveDb();
+  return clean;
+});
+
+// Copy the chosen logo into the app's data folder so it keeps working if the original moves
+ipcMain.handle('style:pickLogo', async () => {
+  const r = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg'] }] });
+  if (r.canceled || !r.filePaths[0]) return null;
+  const src = r.filePaths[0];
+  const buf = fs.readFileSync(src);
+  const isPng = buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const isJpg = buf[0] === 0xff && buf[1] === 0xd8;
+  if (!isPng && !isJpg) return { error: 'That file is not a PNG or JPEG image.' };
+  if (buf.length > 5 * 1024 * 1024) return { error: 'Please pick an image under 5 MB.' };
+  const dir = path.join(app.getPath('userData'), 'assets');
+  fs.mkdirSync(dir, { recursive: true });
+  for (const f of fs.readdirSync(dir)) if (f.startsWith('logo')) fs.rmSync(path.join(dir, f), { force: true });
+  const dest = path.join(dir, `logo-${Date.now()}.${isPng ? 'png' : 'jpg'}`);
+  fs.writeFileSync(dest, buf);
+  return { path: dest };
+});
+
+// Sample file names for the file-name field
+ipcMain.handle('style:fileExample', (_e, style) => {
+  const s = getSettings();
+  const clean = S.normalizeStyle(style);
+  return fileNames(clean, { name: s.your_name || 'Your Name', client: 'Acme Ltd', number: 12, start: '2026-09-14', end: '2026-09-20', range: '09_14 - 09_18' });
+});
+
+// Render sample documents with a style that hasn't been saved yet
+let previewSeq = 0;
+ipcMain.handle('style:preview', async (_e, { style, cycle = 'weekly' }) => {
+  const s = getSettings();
+  const clients = queryAll('SELECT * FROM clients ORDER BY name');
+  const client = clients[0] || { name: 'Acme Ltd', bill_to: 'Acme Ltd\nAccounts Payable', hourly_rate: 25, default_description: 'Consulting' };
+  const settings = { ...s, your_name: s.your_name || 'Your Name', payment_method: s.payment_method || 'PayPal:', payment_email: s.payment_email || 'you@example.com' };
+
+  // the most recent Monday-based week (or month) with sample weekday hours
+  const now = new Date();
+  const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) - 7);
+  const ymdL = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  let start = mon, end = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+  if (cycle === 'monthly') { start = new Date(now.getFullYear(), now.getMonth() - 1, 1); end = new Date(now.getFullYear(), now.getMonth(), 0); }
+  const entries = [];
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    entries.push({ date: ymdL(d), time_in: s.default_time_in || '08:00', time_out: s.default_time_out || '16:00', break_hours: 0, overtime_hours: 0, hours: 8, description: '' });
+  }
+
+  const dir = previewDir();
+  fs.rmSync(dir, { recursive: true, force: true });
+  const outDir = path.join(dir, String(++previewSeq)); // unique folder so the viewer never shows a cached file
+  const r = await generatePeriod({
+    settings, client, entries, periodStart: ymdL(start), periodEnd: ymdL(end), cycle,
+    invoiceNumber: 12, submittedOn: ymdL(now), comments: '', outDir, style,
+  });
+  return { invoice: r.invoicePath, timesheet: r.timesheetPath, sample: !clients.length };
+});
 
 // ── app lifecycle ──
 
@@ -260,5 +344,8 @@ app.whenReady().then(async () => {
   createWindow();
 });
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => {
+  try { fs.rmSync(previewDir(), { recursive: true, force: true }); } catch {}
+  if (process.platform !== 'darwin') app.quit();
+});
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
