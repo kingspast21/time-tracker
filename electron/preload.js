@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   saveClient: call('db:saveClient'),
   deleteClient: call('db:deleteClient'),
 
-  getWeek: call('db:getWeek'),
+  getRange: call('db:getRange'),
   saveDay: call('db:saveDay'),
 
   invoiceInfo: call('invoice:info'),

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { money } from '../dates';
+import { CYCLES, cycleLabel, money, mondayOf, ymd } from '../periods';
 
-const empty = { name: '', hourly_rate: '', bill_to: '', default_description: '' };
+const empty = { name: '', hourly_rate: '', bill_to: '', default_description: '', billing_cycle: 'weekly', cycle_anchor: '' };
 
 export default function ClientsPage({ showToast }) {
   const [clients, setClients] = useState([]);
@@ -30,6 +30,10 @@ export default function ClientsPage({ showToast }) {
   };
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const setCycle = (id) => setForm(f => ({
+    ...f, billing_cycle: id,
+    cycle_anchor: id === 'biweekly' && !f.cycle_anchor ? ymd(mondayOf(new Date())) : f.cycle_anchor,
+  }));
 
   return (
     <div>
@@ -41,16 +45,17 @@ export default function ClientsPage({ showToast }) {
       <div className="card">
         {clients.length === 0 ? <p className="muted center">No clients yet.</p> : (
           <table>
-            <thead><tr><th>Name</th><th>Invoice for</th><th>Rate</th><th>Description</th><th style={{ width: 140 }}></th></tr></thead>
+            <thead><tr><th>Name</th><th>Invoice for</th><th>Rate</th><th>Invoiced</th><th>Description</th><th style={{ width: 140 }}></th></tr></thead>
             <tbody>
               {clients.map(c => (
                 <tr key={c.id}>
                   <td><b>{c.name}</b></td>
                   <td className="muted">{(c.bill_to || c.name).split('\n').join(', ')}</td>
                   <td>{money(c.hourly_rate)}/h</td>
+                  <td>{cycleLabel(c.billing_cycle)}</td>
                   <td className="muted">{c.default_description}</td>
                   <td className="actions">
-                    <button className="btn btn-sm btn-outline" onClick={() => setForm({ ...c, hourly_rate: String(c.hourly_rate) })}>Edit</button>
+                    <button className="btn btn-sm btn-outline" onClick={() => setForm({ ...empty, ...c, hourly_rate: String(c.hourly_rate) })}>Edit</button>
                     <button className="btn btn-sm btn-danger" onClick={() => remove(c)}>Delete</button>
                   </td>
                 </tr>
@@ -82,6 +87,27 @@ export default function ClientsPage({ showToast }) {
                 <input value={form.default_description} onChange={set('default_description')} placeholder="e.g. Consulting" />
               </div>
             </div>
+
+            <div className="form-group">
+              <label>How often you invoice</label>
+              <div className="seg" role="radiogroup" aria-label="Billing cycle">
+                {CYCLES.map(c => (
+                  <button key={c.id} type="button" role="radio" aria-checked={form.billing_cycle === c.id}
+                    className={form.billing_cycle === c.id ? 'on' : ''} onClick={() => setCycle(c.id)}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <p className="hint">{CYCLES.find(c => c.id === form.billing_cycle)?.hint}</p>
+            </div>
+            {form.billing_cycle === 'biweekly' && (
+              <div className="form-group">
+                <label>First day of a pay period</label>
+                <input type="date" value={form.cycle_anchor || ''} onChange={set('cycle_anchor')} />
+                <p className="hint">Pick any Monday a fortnight started on. Other dates snap to that week's Monday.</p>
+              </div>
+            )}
+
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setForm(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={save}>Save</button>

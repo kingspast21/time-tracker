@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import WeekPage from './components/WeekPage';
+import PeriodPage from './components/PeriodPage';
 import ClientsPage from './components/ClientsPage';
 import SettingsPage from './components/SettingsPage';
 
 export default function App() {
-  const [page, setPage] = useState('week');
+  const [page, setPage] = useState('period');
   const [toast, setToast] = useState(null);
   const [settings, setSettings] = useState(null);
 
@@ -16,7 +16,7 @@ export default function App() {
   useEffect(() => { window.api.getSettings().then(setSettings); }, [page]);
 
   const pages = [
-    { id: 'week', label: 'This week' },
+    { id: 'period', label: 'Invoice' },
     { id: 'clients', label: 'Clients' },
     { id: 'settings', label: 'Settings' },
   ];
@@ -33,7 +33,7 @@ export default function App() {
         {settings && <div className="sidebar-foot">{settings.your_name}</div>}
       </nav>
       <main className="main-content">
-        {page === 'week' && <WeekPage showToast={showToast} settings={settings} goSettings={() => setPage('settings')} />}
+        {page === 'period' && <PeriodPage showToast={showToast} settings={settings} goSettings={() => setPage('settings')} />}
         {page === 'clients' && <ClientsPage showToast={showToast} />}
         {page === 'settings' && <SettingsPage showToast={showToast} />}
       </main>

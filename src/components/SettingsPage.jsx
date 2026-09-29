@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { cycleLabel, shortDate } from '../periods';
 
 export default function SettingsPage({ showToast }) {
   const [s, setS] = useState(null);
@@ -70,10 +71,10 @@ export default function SettingsPage({ showToast }) {
         <div className="card narrow">
           <h3>Recent invoices</h3>
           <table>
-            <thead><tr><th>#</th><th>Week starting</th><th>Client</th><th>Submitted</th></tr></thead>
+            <thead><tr><th>#</th><th>Period</th><th>Cycle</th><th>Client</th><th>Submitted</th></tr></thead>
             <tbody>
               {history.map(h => (
-                <tr key={h.id}><td>{h.number}</td><td>{h.week_start}</td><td>{h.client_name}</td><td>{h.submitted_on}</td></tr>
+                <tr key={h.id}><td>{h.number}</td><td>{shortDate(h.week_start)} – {shortDate(h.period_end || h.week_start)}</td><td className="muted">{cycleLabel(h.cycle)}</td><td>{h.client_name}</td><td>{h.submitted_on ? shortDate(h.submitted_on) : ''}</td></tr>
               ))}
             </tbody>
           </table>
